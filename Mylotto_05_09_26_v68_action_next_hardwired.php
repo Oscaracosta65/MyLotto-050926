@@ -5409,6 +5409,66 @@ function mleAdvisoryBuildForcedNextSettingsSkaiBatchPlan(array $settingsAdv, arr
     );
 }
 
+function mleAdvisoryParseSkaiLotteryUrlMetaFromUrl($url, $lotteryId = 0)
+{
+    $url = trim((string)$url);
+    $parsedMeta = array(
+        'lottery_url' => '',
+        'base_url' => '',
+        'gameId' => '',
+        'st' => '',
+        'stn' => '',
+        'gm' => '',
+        'lottery_id' => (int)$lotteryId,
+    );
+    if ($url === '') {
+        return $parsedMeta;
+    }
+
+    $decodedUrl = html_entity_decode($url, ENT_QUOTES, 'UTF-8');
+    if (!preg_match('#skai-lottery-prediction#i', $decodedUrl)) {
+        return $parsedMeta;
+    }
+
+    $parts = @parse_url($decodedUrl);
+    if (!is_array($parts)) {
+        return $parsedMeta;
+    }
+
+    $scheme = isset($parts['scheme']) ? strtolower((string)$parts['scheme']) : '';
+    $host   = isset($parts['host']) ? trim((string)$parts['host']) : '';
+    $path   = isset($parts['path']) ? trim((string)$parts['path']) : '';
+    if ($path === '' || stripos($path, 'skai-lottery-prediction') === false) {
+        return $parsedMeta;
+    }
+
+    $baseUrl = $path;
+    if ($host !== '') {
+        $baseUrl = ($scheme !== '' ? $scheme : 'https') . '://' . $host . $path;
+        if (!empty($parts['port'])) {
+            $baseUrl = ($scheme !== '' ? $scheme : 'https') . '://' . $host . ':' . (int)$parts['port'] . $path;
+        }
+    }
+
+    $query = array();
+    if (!empty($parts['query'])) {
+        parse_str((string)$parts['query'], $query);
+    }
+
+    $gameId = preg_replace('/[^a-zA-Z0-9_\-.]/', '', substr((string)($query['gameId'] ?? ''), 0, 50));
+    $stateCode = strtolower(preg_replace('/[^a-zA-Z0-9_\-.]/', '', substr((string)($query['st'] ?? ''), 0, 20)));
+    $stateName = trim((string)($query['stn'] ?? ''));
+    $gameName  = trim((string)($query['gm'] ?? ''));
+
+    $parsedMeta['lottery_url'] = $decodedUrl;
+    $parsedMeta['base_url'] = $baseUrl;
+    $parsedMeta['gameId'] = $gameId;
+    $parsedMeta['st'] = $stateCode;
+    $parsedMeta['stn'] = $stateName;
+    $parsedMeta['gm'] = $gameName;
+    return $parsedMeta;
+}
+
 function mleAdvisoryResolveSkaiPageBaseUrl($db)
 {
     // [[MLE_SKAI_EXACT_ROUTE_V12]]
@@ -5468,6 +5528,8 @@ function mleAdvisoryResolveSkaiLotteryUrlMeta($db, $lotteryId)
 {
     $lotteryId = (int)$lotteryId;
     $meta = array(
+        'lottery_url' => '',
+        'base_url' => '',
         'gameId' => '',
         'st' => '',
         'stn' => '',
@@ -5485,12 +5547,12 @@ function mleAdvisoryResolveSkaiLotteryUrlMeta($db, $lotteryId)
         $stateCols = is_array($stateColsRaw) ? array_keys($stateColsRaw) : array();
 
         $select = array();
-        foreach (array('lottery_id','id','game_id','gameId','gid','name','game_name','title','alias','state_id') as $c) {
+        foreach (array('lottery_id','id','game_id','gameId','gid','game_code','game_alias','name','game_name','display_name','title','alias','lottery_urls','lottery_url','url','state_id') as $c) {
             if (in_array($c, $lotteryCols, true)) {
                 $select[] = 'l.' . $db->quoteName($c) . ' AS ' . $db->quoteName('l_' . $c);
             }
         }
-        foreach (array('state_id','name','state_name','state_code','code','abbr','abbrev','short_code','alias') as $c) {
+        foreach (array('state_id','name','state_name','state_code','code','abbr','abbrev','short_code','alias','title') as $c) {
             if (in_array($c, $stateCols, true)) {
                 $select[] = 's.' . $db->quoteName($c) . ' AS ' . $db->quoteName('s_' . $c);
             }
@@ -5523,7 +5585,22 @@ function mleAdvisoryResolveSkaiLotteryUrlMeta($db, $lotteryId)
             return $meta;
         }
 
-        foreach (array('l_game_id','l_gameId','l_gid') as $k) {
+        foreach (array('l_lottery_urls','l_lottery_url','l_url') as $k) {
+            $candidateUrl = trim((string)($row[$k] ?? ''));
+            if ($candidateUrl === '') { continue; }
+            $urlMeta = mleAdvisoryParseSkaiLotteryUrlMetaFromUrl($candidateUrl, $lotteryId);
+            if (!empty($urlMeta['lottery_url'])) {
+                $meta['lottery_url'] = (string)$urlMeta['lottery_url'];
+                $meta['base_url'] = (string)$urlMeta['base_url'];
+                if ($meta['gameId'] === '' && $urlMeta['gameId'] !== '') { $meta['gameId'] = (string)$urlMeta['gameId']; }
+                if ($meta['st'] === '' && $urlMeta['st'] !== '') { $meta['st'] = (string)$urlMeta['st']; }
+                if ($meta['stn'] === '' && $urlMeta['stn'] !== '') { $meta['stn'] = (string)$urlMeta['stn']; }
+                if ($meta['gm'] === '' && $urlMeta['gm'] !== '') { $meta['gm'] = (string)$urlMeta['gm']; }
+                break;
+            }
+        }
+
+        foreach (array('l_game_id','l_gameId','l_gid','l_game_code','l_game_alias') as $k) {
             $v = trim((string)($row[$k] ?? ''));
             if ($v !== '') { $meta['gameId'] = $v; break; }
         }
@@ -5534,13 +5611,13 @@ function mleAdvisoryResolveSkaiLotteryUrlMeta($db, $lotteryId)
             }
         }
 
-        foreach (array('l_game_name','l_name','l_title','l_alias') as $k) {
+        foreach (array('l_game_name','l_name','l_display_name','l_title','l_alias') as $k) {
             $v = trim((string)($row[$k] ?? ''));
             if ($v !== '') { $meta['gm'] = $v; break; }
         }
 
         $stateName = '';
-        foreach (array('s_name','s_state_name') as $k) {
+        foreach (array('s_name','s_state_name','s_title') as $k) {
             $v = trim((string)($row[$k] ?? ''));
             if ($v !== '') { $stateName = $v; break; }
         }
@@ -5557,6 +5634,13 @@ function mleAdvisoryResolveSkaiLotteryUrlMeta($db, $lotteryId)
             $stateCode = strtolower($stateCode);
         }
 
+        if ($stateName === '' && mylottoexpertIsKnownMultiStateLottery((string)$meta['gm'], (string)$meta['gameId'], '')) {
+            $stateName = 'United States';
+        }
+        if ($stateCode === '' && $stateName === 'United States') {
+            $stateCode = 'us';
+        }
+
         $meta['gameId'] = preg_replace('/[^a-zA-Z0-9_\-.]/', '', substr((string)$meta['gameId'], 0, 50));
         $meta['st'] = preg_replace('/[^a-zA-Z0-9_\-.]/', '', substr((string)$stateCode, 0, 20));
         $meta['stn'] = $stateName;
@@ -5566,6 +5650,21 @@ function mleAdvisoryResolveSkaiLotteryUrlMeta($db, $lotteryId)
     }
 
     return $meta;
+}
+
+function mleAdvisoryValidateSkaiLotteryUrlMeta(array $meta)
+{
+    $required = array('gameId', 'st', 'stn', 'gm');
+    $missing = array();
+    foreach ($required as $field) {
+        if (trim((string)($meta[$field] ?? '')) === '') {
+            $missing[] = $field;
+        }
+    }
+    return array(
+        'ok' => empty($missing),
+        'missing' => $missing,
+    );
 }
 
 function mleAdvisoryBuildCanonicalSkaiLotteryUrl($db, $lotteryId, array $extraArgs = array(), $hash = '')
@@ -5582,6 +5681,11 @@ function mleAdvisoryBuildCanonicalSkaiLotteryUrl($db, $lotteryId, array $extraAr
     }
     $gameId = preg_replace('/[^a-zA-Z0-9_\-.]/', '', substr($gameId, 0, 50));
 
+    $baseUrl = trim((string)($meta['base_url'] ?? ''));
+    if ($baseUrl === '') {
+        $baseUrl = mleAdvisoryResolveSkaiPageBaseUrl($db);
+    }
+
     $queryArgs = array(
         'gameId' => $gameId,
         'st' => (string)($meta['st'] ?? ''),
@@ -5595,7 +5699,7 @@ function mleAdvisoryBuildCanonicalSkaiLotteryUrl($db, $lotteryId, array $extraAr
         $queryArgs[$k] = $v;
     }
 
-    $url = mleAdvisoryResolveSkaiPageBaseUrl($db) . '?' . http_build_query($queryArgs, '', '&', PHP_QUERY_RFC3986);
+    $url = $baseUrl . '?' . http_build_query($queryArgs, '', '&', PHP_QUERY_RFC3986);
     $hash = trim((string)$hash);
     if ($hash !== '') {
         $url .= '#' . ltrim($hash, '#');
@@ -8055,6 +8159,20 @@ if ($__mleAction === 'create_skai_batch') {
         $app->redirect(\Joomla\CMS\Uri\Uri::getInstance()->toString());
         return;
     }
+    $__batchSkaiMeta = mleAdvisoryResolveSkaiLotteryUrlMeta($db, $__batchLotteryId);
+    $__batchSkaiMetaCheck = mleAdvisoryValidateSkaiLotteryUrlMeta($__batchSkaiMeta);
+    if (empty($__batchSkaiMetaCheck['ok'])) {
+        error_log('[MLE 9BATCH] Missing SKAI routing fields for lottery_id=' . (int)$__batchLotteryId . '; missing=' . implode(',', (array)$__batchSkaiMetaCheck['missing']) . '; meta=' . json_encode(array(
+            'gameId' => (string)($__batchSkaiMeta['gameId'] ?? ''),
+            'st' => (string)($__batchSkaiMeta['st'] ?? ''),
+            'stn' => (string)($__batchSkaiMeta['stn'] ?? ''),
+            'gm' => (string)($__batchSkaiMeta['gm'] ?? ''),
+            'base_url' => (string)($__batchSkaiMeta['base_url'] ?? '')
+        ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $app->enqueueMessage('9BATCH could not open SKAI because the selected lottery is missing required routing details. Please refresh and try again.', 'error');
+        $app->redirect(\Joomla\CMS\Uri\Uri::getInstance()->toString());
+        return;
+    }
     // Rebuild the batch recommendation entirely server-side from saved evidence.
     // When the user comes from Recommended Next Settings Run, force a practical
     // 9-run SKAI batch even if the stricter Precision Focus batch gate is not ready.
@@ -8220,6 +8338,9 @@ if ($__mleAction === 'create_skai_batch') {
         }
         unset($__batchRunIdx, $__batchRunLabel, $__batchRunOrder, $__batchIsControl, $__batchRunSettings, $__batchRunTestValue, $__batchRunSettingsJson);
         $__batchOpenSkaiUrl = mleAdvisoryResolveSkaiBatchOpenUrl($db, $__batchLotteryId, $__batchHeaderId, $__batchTypeLabel);
+        if (strpos((string)$__batchOpenSkaiUrl, 'skai-lottery-prediction') === false) {
+            throw new \RuntimeException('SKAI batch URL was not generated correctly.');
+        }
         // [[MLE_SKAI_PRECISION_BATCH_HANDOFF_V10]]
         // Database is the source of truth, but this same-session handoff helps SKAI
         // acknowledge the batch immediately after redirect and gives admins a clean
@@ -8231,6 +8352,12 @@ if ($__mleAction === 'create_skai_batch') {
                 'lottery_name' => (string)$__batchLotteryName,
                 'batch_type' => (string)$__batchTypeLabel,
                 'created_at' => time(),
+                'skai_meta' => array(
+                    'gameId' => (string)($__batchSkaiMeta['gameId'] ?? ''),
+                    'st' => (string)($__batchSkaiMeta['st'] ?? ''),
+                    'stn' => (string)($__batchSkaiMeta['stn'] ?? ''),
+                    'gm' => (string)($__batchSkaiMeta['gm'] ?? '')
+                ),
                 'open_url' => (string)$__batchOpenSkaiUrl,
             ));
         } catch (\Throwable $e) { /* non-fatal */ }
@@ -8238,7 +8365,7 @@ if ($__mleAction === 'create_skai_batch') {
         $app->redirect($__batchOpenSkaiUrl);
         return;
     } catch (\Throwable $e) {
-        error_log('[MLE Batch] create_skai_batch error: ' . $e->getMessage());
+        error_log('[MLE 9BATCH] create_skai_batch error: ' . $e->getMessage() . '; lottery_id=' . (int)$__batchLotteryId);
         $app->enqueueMessage('Batch test was not created because LottoExpert could not identify one clean setting to test.', 'error');
     }
     $app->redirect(\Joomla\CMS\Uri\Uri::getInstance()->toString());
@@ -18816,6 +18943,36 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
       return;
     }
     if (url) { window.location.href = url; }
+  }, false);
+})();
+</script>
+<script>
+(function(){
+  'use strict';
+  if (window.__MLE_9BATCH_SUBMIT_GUARD__) { return; }
+  window.__MLE_9BATCH_SUBMIT_GUARD__ = true;
+  document.addEventListener('submit', function(ev){
+    var form = ev.target;
+    var btn;
+    if (!form || !form.classList || !form.classList.contains('mle-next-settings-run__form')) { return; }
+    if (ev.defaultPrevented) { return; }
+    if (form.getAttribute('data-mle-submit-locked') === '1') {
+      ev.preventDefault();
+      return;
+    }
+    form.setAttribute('data-mle-submit-locked', '1');
+    btn = form.querySelector('button[type="submit"], input[type="submit"]');
+    if (btn) {
+      btn.disabled = true;
+      btn.setAttribute('aria-disabled', 'true');
+      if (btn.tagName && btn.tagName.toLowerCase() === 'button') {
+        btn.setAttribute('data-mle-original-label', btn.textContent || '');
+        btn.textContent = 'Creating 9BATCH...';
+      } else if (btn.value) {
+        btn.setAttribute('data-mle-original-label', btn.value);
+        btn.value = 'Creating 9BATCH...';
+      }
+    }
   }, false);
 })();
 </script>
@@ -40274,8 +40431,10 @@ html.mle-v34-mode-full details.mle-compact-group .mle-compact-group__body{displa
   function submitFocusBatch(card){
     var f = batchForm(card);
     if (!f) { return false; }
+    if (f.getAttribute('data-mle-submit-locked') === '1') { return true; }
     var btn = qs('button[type="submit"], input[type="submit"]', f);
-    if (btn) { btn.click(); }
+    if (btn && typeof f.requestSubmit === 'function') { f.requestSubmit(btn); }
+    else if (btn) { btn.click(); }
     else { f.submit(); }
     return true;
   }
