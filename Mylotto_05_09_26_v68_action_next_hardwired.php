@@ -17513,6 +17513,53 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
   $__advBatchQueueInProgress = is_array($__advBatchQueueData['in_progress'] ?? null) ? $__advBatchQueueData['in_progress'] : array();
   $__advBatchQueueHistory = is_array($__advBatchQueueData['history'] ?? null) ? $__advBatchQueueData['history'] : array();
   $__advBatchQueueAvailable = !empty($__advBatchQueueData['available']);
+  $__advPrecisionBatchSectionId = 'mle-section-' . $__advLid . '-precision-lock-batches';
+  $__advHasReadyPrecisionBatch = (!empty($__advBatchQueueReady) && $__advTopMKey === 'skai');
+  $__advActionTargetMode = 'focus';
+  $__advActionChipText = 'Review Precision Focus guidance';
+  $__advActionChipLabel = 'Review the Precision Focus and learning guidance for this lottery.';
+  $__advActionJumpTargetId = $__advFocusSectionId;
+  $__advActionJumpPanelId = '';
+  $__advActionStatusText = 'Next';
+  $__advActionStatusCss = 'next';
+  $__advNextCss = 'mle-adv-meta-item--watching';
+  $__advActionInlineStyle = 'background:linear-gradient(135deg,#0f172a 0%,#1d4ed8 56%,#2563eb 100%) !important;border:1px solid rgba(147,197,253,.76) !important;color:#ffffff !important;';
+  $__advScanStateClass = 'mle-scan-pill--next-guidance';
+  if ($__advHasPendingRuns) {
+      $__advActionTargetMode = 'pending';
+      $__advActionChipText = 'In progress: ' . (int)$__advPendingRuns . ' pending run' . ((int)$__advPendingRuns === 1 ? '' : 's') . ' waiting for draw results';
+      $__advActionChipLabel = 'Review the pending runs for this lottery.';
+      $__advActionJumpTargetId = $__advPendingDropdownId;
+      $__advActionJumpPanelId = $__advPendingDropdownId;
+      $__advActionStatusText = 'In progress';
+      $__advActionStatusCss = 'in-progress';
+      $__advNextCss = 'mle-adv-meta-item--in-progress';
+      $__advActionInlineStyle = 'background:linear-gradient(135deg,#064e3b 0%,#047857 52%,#059669 100%) !important;border:1px solid rgba(167,243,208,.78) !important;color:#ffffff !important;';
+      $__advScanStateClass = 'mle-scan-pill--in-progress';
+  } elseif ($__advHasReadyPrecisionBatch) {
+      $__advActionTargetMode = 'precision_batch';
+      $__advActionChipText = 'Run ready Precision Focus batch in SKAI';
+      $__advActionChipLabel = 'Open the Recommended Precision Focus Batches section for this lottery.';
+      $__advActionJumpTargetId = $__advPrecisionBatchSectionId;
+      $__advActionJumpPanelId = '';
+      $__advActionStatusText = 'Action';
+      $__advActionStatusCss = 'action';
+      $__advNextCss = 'mle-adv-meta-item--action-needed';
+      $__advActionInlineStyle = 'background:linear-gradient(135deg,#7f1d1d 0%,#b91c1c 52%,#ea580c 100%) !important;border:1px solid rgba(254,202,202,.84) !important;color:#ffffff !important;';
+      $__advScanStateClass = 'mle-scan-pill--action-needed';
+  } elseif ($__advHasAdv) {
+      $__advActionTargetMode = 'next_settings';
+      $__advActionChipText = 'Create Recommended Next Settings Run';
+      $__advActionChipLabel = 'Jump directly to the Recommended Next Settings Run section for this lottery.';
+      $__advActionJumpTargetId = $__advNextRunSectionId;
+      $__advActionJumpPanelId = '';
+      $__advActionStatusText = 'Action';
+      $__advActionStatusCss = 'action';
+      $__advNextCss = 'mle-adv-meta-item--action-needed';
+      $__advActionInlineStyle = 'background:linear-gradient(135deg,#92400e 0%,#b45309 48%,#d97706 100%) !important;border:1px solid rgba(253,230,138,.82) !important;color:#ffffff !important;';
+      $__advScanStateClass = 'mle-scan-pill--action-needed';
+  }
+  $__advActionJumpLabel = $__advActionChipLabel;
   $__advBatchReviewId = $app->input->getInt('mle_review_batch_id', 0);
   if ($__advBatchHas && $__advHasAdv && $__advSLabelRaw !== '') {
       $__plkTestNextRaw = 'Best when you want SKAI to run the complete 9-run bracketed test immediately. Change only ' . $__advSLabelRaw . ' from ' . (($__advCurrVal !== '') ? html_entity_decode($__advCurrVal, ENT_QUOTES, 'UTF-8') : 'the current value') . ' to ' . (($__advSugVal !== '') ? html_entity_decode($__advSugVal, ENT_QUOTES, 'UTF-8') : 'the recommended value') . ' in the next copied run for this lottery.';
@@ -17569,7 +17616,7 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
         <span class="mle-adv-meta-item mle-adv-meta-item--method mle-adv-meta-item--method-<?php echo htmlspecialchars($__advMethodCssKey, ENT_QUOTES, 'UTF-8'); ?>"><span class="mle-adv-meta-label">Evidence direction <span class="mle-help-tip" tabindex="0" role="button" aria-label="Evidence direction help" data-help="The strategy direction currently performing best among this lottery's scored runs. SKAI is the flagship engine, but MCMC, Neural AI, Skip/Hit, and Frequency can lead when the saved evidence supports them.">?</span>:</span> <strong><?php echo $__advTopMLabel; ?></strong></span>
         <span class="mle-adv-meta-item mle-adv-meta-item--track mle-adv-meta-item--track-<?php echo $__advMethodBadge; ?>"><span class="mle-adv-meta-label">Learning track <span class="mle-help-tip" tabindex="0" role="button" aria-label="Learning track help" data-help="Shows how LottoExpert is treating the leading method: SKAI as the flagship precision engine, MCMC as a sampling track, Neural AI as a classic AI track, Skip/Hit as a timing signal, or Frequency as a baseline.">?</span>:</span> <strong><?php echo $__advMethodShortTrack; ?></strong></span>
         <span class="mle-adv-meta-item mle-adv-meta-item--proof"><span class="mle-adv-meta-label">Evidence level <span class="mle-help-tip" tabindex="0" role="button" aria-label="Evidence level help" data-help="Shows how mature the evidence is for this lottery. It gets stronger only when completed draw cycles and scored runs build up over time.">?</span>:</span> <span class="mle-proof-badge <?php echo $__advPLCss; ?>"><?php echo $__advPLLabel; ?></span></span>
-        <button type="button" class="mle-adv-meta-item <?php echo $__advNextCss; ?> mle-action-button-state--<?php echo htmlspecialchars($__advActionStatusCss, ENT_QUOTES, 'UTF-8'); ?> mle-status-action-jump mle-section-shortcut-btn" style="<?php echo htmlspecialchars($__advActionInlineStyle, ENT_QUOTES, 'UTF-8'); ?>" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-target-section="<?php echo htmlspecialchars($__advActionJumpTargetId, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $__advActionJumpPanelId !== '' ? ' data-target-panel="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '" data-open-details="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '"' : ''; ?> aria-label="<?php echo htmlspecialchars($__advActionJumpLabel, ENT_QUOTES, 'UTF-8'); ?>"><span class="mle-action-status-badge mle-action-status-badge--<?php echo $__advActionStatusCss; ?>"><?php echo htmlspecialchars($__advActionStatusText, ENT_QUOTES, 'UTF-8'); ?></span><span class="mle-adv-meta-label">Next <span class="mle-help-tip" tabindex="0" role="button" aria-label="Recommended next step help" data-help="The most useful action for this lottery right now. Click this chip to jump directly to the relevant action area. If runs are pending, review them. Otherwise, go to the 9-run batch section.">?</span>:</span> <strong><?php echo htmlspecialchars($__advNextAction, ENT_QUOTES, 'UTF-8'); ?></strong></button>
+        <button type="button" class="mle-adv-meta-item <?php echo $__advNextCss; ?> mle-action-button-state--<?php echo htmlspecialchars($__advActionStatusCss, ENT_QUOTES, 'UTF-8'); ?><?php echo $__advActionTargetMode === 'precision_batch' ? ' mle-action-button-state--urgent-batch' : ''; ?> mle-status-action-jump mle-section-shortcut-btn" style="<?php echo htmlspecialchars($__advActionInlineStyle, ENT_QUOTES, 'UTF-8'); ?>" data-action-target="<?php echo htmlspecialchars($__advActionTargetMode, ENT_QUOTES, 'UTF-8'); ?>" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-target-section="<?php echo htmlspecialchars($__advActionJumpTargetId, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $__advActionJumpPanelId !== '' ? ' data-target-panel="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '" data-open-details="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '"' : ''; ?> aria-label="<?php echo htmlspecialchars($__advActionJumpLabel, ENT_QUOTES, 'UTF-8'); ?>"><span class="mle-action-status-badge mle-action-status-badge--<?php echo $__advActionStatusCss; ?>"><?php echo htmlspecialchars($__advActionStatusText, ENT_QUOTES, 'UTF-8'); ?></span><span class="mle-adv-meta-label">Next <span class="mle-help-tip" tabindex="0" role="button" aria-label="Recommended next step help" data-help="The most useful action for this lottery right now. Click this chip to jump directly to the relevant action area. If runs are pending, review them. Otherwise, go to the 9-run batch section.">?</span>:</span> <strong><?php echo htmlspecialchars($__advActionChipText, ENT_QUOTES, 'UTF-8'); ?></strong></button>
       </div>
       <div class="mle-adv-run-stats" aria-label="Run statistics for <?php echo $__advLname; ?>">
         <span class="mle-adv-stat-chip mle-adv-stat-chip--total" title="Total active saved runs for this lottery">
@@ -17598,7 +17645,7 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
       <div class="mle-lottery-scan-row mle-lottery-scan-row--<?php echo htmlspecialchars($__advWindowMode, ENT_QUOTES, 'UTF-8'); ?>" aria-label="Immediate status summary for <?php echo $__advLname; ?>">
         <span class="mle-scan-pill mle-scan-pill--direction"><span class="mle-scan-pill__k">Direction</span><strong><?php echo $__advTopMLabel; ?></strong></span>
         <span class="mle-scan-pill mle-scan-pill--evidence <?php echo $__advPLCss; ?>"><span class="mle-scan-pill__k">Evidence</span><strong><?php echo $__advPLLabel; ?></strong></span>
-        <button type="button" class="mle-scan-pill <?php echo htmlspecialchars($__advScanStateClass, ENT_QUOTES, 'UTF-8'); ?> mle-scan-pill--clickable mle-section-shortcut-btn" style="<?php echo htmlspecialchars($__advActionInlineStyle, ENT_QUOTES, 'UTF-8'); ?>" data-target-section="<?php echo htmlspecialchars($__advActionJumpTargetId, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $__advActionJumpPanelId !== '' ? ' data-target-panel="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '" data-open-details="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '"' : ''; ?> aria-label="<?php echo htmlspecialchars($__advActionJumpLabel, ENT_QUOTES, 'UTF-8'); ?>"><span class="mle-scan-pill__k">Next</span><strong><?php echo htmlspecialchars($__advNextAction, ENT_QUOTES, 'UTF-8'); ?></strong></button>
+        <button type="button" class="mle-scan-pill <?php echo htmlspecialchars($__advScanStateClass, ENT_QUOTES, 'UTF-8'); ?><?php echo $__advActionTargetMode === 'precision_batch' ? ' mle-scan-pill--urgent-batch' : ''; ?> mle-scan-pill--clickable mle-section-shortcut-btn" style="<?php echo htmlspecialchars($__advActionInlineStyle, ENT_QUOTES, 'UTF-8'); ?>" data-action-target="<?php echo htmlspecialchars($__advActionTargetMode, ENT_QUOTES, 'UTF-8'); ?>" data-target-section="<?php echo htmlspecialchars($__advActionJumpTargetId, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $__advActionJumpPanelId !== '' ? ' data-target-panel="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '" data-open-details="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '"' : ''; ?> aria-label="<?php echo htmlspecialchars($__advActionJumpLabel, ENT_QUOTES, 'UTF-8'); ?>"><span class="mle-scan-pill__k">Next</span><strong><?php echo htmlspecialchars($__advActionChipText, ENT_QUOTES, 'UTF-8'); ?></strong></button>
         <span class="mle-scan-pill <?php echo $__advPendingRuns > 0 ? 'mle-scan-pill--pending' : 'mle-scan-pill--fresh-runs'; ?>"><span class="mle-scan-pill__k"><?php echo htmlspecialchars($__advPendingScanKey, ENT_QUOTES, 'UTF-8'); ?></span><strong><?php echo htmlspecialchars($__advPendingScanValue, ENT_QUOTES, 'UTF-8'); ?></strong></span>
       </div>
       <?php /* [[MLE_V23_COMPACT_SUMMARY]] Collapsed card shortcuts removed. Expanded-card shortcuts remain available inside the opened lottery workspace. */ ?>
@@ -41986,12 +42033,20 @@ body.mle-beta-modal-open{overflow:hidden;}
 .mle-advisory-card .mle-status-action-jump[data-mle-action-state="action"],
 .mle-advisory-card .mle-status-action-jump.mle-action-button-state--action,
 .mle-advisory-card .mle-status-action-jump.mle-action-button-state--action-needed,
+.mle-advisory-card .mle-status-action-jump.mle-action-button-state--urgent-batch,
 .mle-advisory-card .mle-status-action-jump.mle-adv-meta-item--action-needed,
 .mle-advisory-card .mle-scan-pill--clickable[data-mle-action-state="action"],
 .mle-advisory-card .mle-scan-pill--clickable.mle-scan-pill--action,
+.mle-advisory-card .mle-scan-pill--clickable.mle-scan-pill--urgent-batch,
 .mle-advisory-card .mle-scan-pill--clickable.mle-scan-pill--action-needed {
   background: linear-gradient(135deg,#92400e 0%,#b45309 48%,#d97706 100%) !important;
   border-color: rgba(253,230,138,.92) !important;
+  color: #fff !important;
+}
+.mle-advisory-card .mle-status-action-jump.mle-action-button-state--urgent-batch,
+.mle-advisory-card .mle-scan-pill--clickable.mle-scan-pill--urgent-batch {
+  background: linear-gradient(135deg,#7f1d1d 0%,#b91c1c 52%,#ea580c 100%) !important;
+  border-color: rgba(254,202,202,.84) !important;
   color: #fff !important;
 }
 .mle-advisory-card .mle-status-action-jump[data-mle-action-state="next"],
@@ -42050,6 +42105,10 @@ body.mle-beta-modal-open{overflow:hidden;}
 
   function qsa(sel, root){ return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
   function qs(sel, root){ return (root || document).querySelector(sel); }
+  function byId(id){
+    id = String(id || '').replace(/^#/, '');
+    return id ? document.getElementById(id) : null;
+  }
   function closest(el, sel){ return el && el.closest ? el.closest(sel) : null; }
   function cleanText(el){ return (el && el.textContent ? el.textContent : '').replace(/\s+/g,' ').trim(); }
   function low(el){ return cleanText(el).toLowerCase(); }
@@ -42118,7 +42177,26 @@ body.mle-beta-modal-open{overflow:hidden;}
     return qs('.mle-v37-run-panel, .mle-v63-run-panel, .mle-v32-run-panel, .mle-skai-batch-test, .mle-next-settings-run, .mle-recommended-next-settings, [id$="-next-settings-run"], [id*="next-settings-run"], [class*="next-settings"], [class*="run-panel"]', card) || null;
   }
 
+  function explicitTarget(btn, card){
+    var id = '';
+    if (btn && btn.getAttribute) {
+      id = btn.getAttribute('data-target-section') || btn.getAttribute('data-target-panel') || btn.getAttribute('data-open-details') || '';
+    }
+    var target = byId(id);
+    if (!target && id) {
+      target = qs('#' + id.replace(/([ !"#$%&'()*+,./:;<=>?@[\\]^`{|}~])/g, '\\$1'), card || document);
+    }
+    return target || null;
+  }
+
   function stateFor(btn, card){
+    var targetMode = (btn.getAttribute('data-action-target') || '').toLowerCase();
+    if (targetMode === 'pending') { return 'pending'; }
+    if (targetMode === 'precision_batch' || targetMode === 'next_settings') { return 'action'; }
+    if (targetMode === 'focus' || targetMode === 'learning') { return 'next'; }
+    var classText = ' ' + ((btn && btn.className) ? String(btn.className) : '') + ' ';
+    if (/mle-action-button-state--in-progress|mle-adv-meta-item--in-progress|mle-scan-pill--in-progress|mle-scan-pill--pending/.test(classText)) { return 'pending'; }
+    if (/mle-action-button-state--urgent-batch|mle-action-button-state--action|mle-action-button-state--action-needed|mle-adv-meta-item--action-needed/.test(classText)) { return 'action'; }
     var txt = (low(btn) + ' ' + (btn.getAttribute('aria-label') || '').toLowerCase() + ' ' + low(qs('.mle-adv-stat-chip--pending', card)) + ' ' + low(qs('.mle-pending-recommendations', card)));
     if (/\b[1-9][0-9]*\s+pending\b/.test(txt) || /in progress|waiting for draw/.test(txt)) { return 'pending'; }
     if (/run new predictions|run new runs|regular 9-batch|9-run|9 batch|create recommended|create focus|recommended next|action|open skai/.test(txt)) { return 'action'; }
@@ -42158,11 +42236,16 @@ body.mle-beta-modal-open{overflow:hidden;}
     applyState(btn);
     openCard(card);
     var state = btn.getAttribute('data-mle-action-state') || stateFor(btn, card);
+    var target = explicitTarget(btn, card);
     if (state === 'pending') {
-      flash(pendingTarget(card));
+      flash(target || pendingTarget(card));
       return true;
     }
-    var target = batchTarget(card);
+    if (target) {
+      flash(target);
+      return true;
+    }
+    target = batchTarget(card);
     if (target) {
       flash(target);
       return true;
