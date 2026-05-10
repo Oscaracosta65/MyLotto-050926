@@ -5448,6 +5448,8 @@ function mleAdvisoryParseSkaiLotteryUrlMetaFromUrl($url, $lotteryId = 0)
         if (!empty($parts['port'])) {
             $baseUrl = ($scheme !== '' ? $scheme : 'https') . '://' . $host . ':' . (int)$parts['port'] . $path;
         }
+    } elseif ($baseUrl !== '' && $baseUrl[0] !== '/') {
+        $baseUrl = '/' . ltrim($baseUrl, '/');
     }
 
     $query = array();
@@ -5467,6 +5469,18 @@ function mleAdvisoryParseSkaiLotteryUrlMetaFromUrl($url, $lotteryId = 0)
     $parsedMeta['stn'] = $stateName;
     $parsedMeta['gm'] = $gameName;
     return $parsedMeta;
+}
+
+function mleAdvisoryIsPlausibleSkaiGameId($value)
+{
+    $value = trim((string)$value);
+    if ($value === '' || !preg_match('/^[A-Za-z0-9_.-]{2,50}$/', $value)) {
+        return false;
+    }
+    if (!preg_match('/[A-Za-z]/', $value)) {
+        return false;
+    }
+    return true;
 }
 
 function mleAdvisoryResolveSkaiPageBaseUrl($db)
@@ -5601,27 +5615,29 @@ function mleAdvisoryResolveSkaiLotteryUrlMeta($db, $lotteryId)
         }
 
         foreach (array('l_game_id','l_gameId','l_gid','l_game_code','l_game_alias') as $k) {
+            if ($meta['gameId'] !== '') { break; }
             $v = trim((string)($row[$k] ?? ''));
-            if ($v !== '') { $meta['gameId'] = $v; break; }
+            if (mleAdvisoryIsPlausibleSkaiGameId($v)) { $meta['gameId'] = $v; break; }
         }
         if ($meta['gameId'] === '') {
-            foreach (array('l_alias','l_id','l_lottery_id') as $k) {
+            foreach (array('l_alias') as $k) {
                 $v = trim((string)($row[$k] ?? ''));
-                if ($v !== '') { $meta['gameId'] = $v; break; }
+                if (mleAdvisoryIsPlausibleSkaiGameId($v)) { $meta['gameId'] = $v; break; }
             }
         }
 
         foreach (array('l_game_name','l_name','l_display_name','l_title','l_alias') as $k) {
+            if ($meta['gm'] !== '') { break; }
             $v = trim((string)($row[$k] ?? ''));
             if ($v !== '') { $meta['gm'] = $v; break; }
         }
 
-        $stateName = '';
+        $stateName = trim((string)($meta['stn'] ?? ''));
         foreach (array('s_name','s_state_name','s_title') as $k) {
             $v = trim((string)($row[$k] ?? ''));
             if ($v !== '') { $stateName = $v; break; }
         }
-        $stateCode = '';
+        $stateCode = trim((string)($meta['st'] ?? ''));
         foreach (array('s_state_code','s_code','s_abbr','s_abbrev','s_short_code','s_alias') as $k) {
             $v = trim((string)($row[$k] ?? ''));
             if ($v !== '') { $stateCode = $v; break; }
@@ -5642,8 +5658,11 @@ function mleAdvisoryResolveSkaiLotteryUrlMeta($db, $lotteryId)
         }
 
         $meta['gameId'] = preg_replace('/[^a-zA-Z0-9_\-.]/', '', substr((string)$meta['gameId'], 0, 50));
+        if (!mleAdvisoryIsPlausibleSkaiGameId($meta['gameId'])) {
+            $meta['gameId'] = '';
+        }
         $meta['st'] = preg_replace('/[^a-zA-Z0-9_\-.]/', '', substr((string)$stateCode, 0, 20));
-        $meta['stn'] = $stateName;
+        $meta['stn'] = $stateName !== '' ? $stateName : (string)($meta['stn'] ?? '');
         $meta['gm'] = $meta['gm'] !== '' ? $meta['gm'] : ('Lottery ' . $lotteryId);
     } catch (\Throwable $e) {
         return $meta;
@@ -5676,9 +5695,6 @@ function mleAdvisoryBuildCanonicalSkaiLotteryUrl($db, $lotteryId, array $extraAr
     $lotteryId = (int)$lotteryId;
     $meta = mleAdvisoryResolveSkaiLotteryUrlMeta($db, $lotteryId);
     $gameId = trim((string)($meta['gameId'] ?? ''));
-    if ($gameId === '') {
-        $gameId = (string)$lotteryId;
-    }
     $gameId = preg_replace('/[^a-zA-Z0-9_\-.]/', '', substr($gameId, 0, 50));
 
     $baseUrl = trim((string)($meta['base_url'] ?? ''));
@@ -18483,7 +18499,7 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
         <input type="hidden" name="proof_label" value="<?php echo $__advPLLabel; ?>">
         <input type="hidden" name="reason" value="<?php echo $__advWhy; ?>">
         <?php echo \Joomla\CMS\HTML\HTMLHelper::_('form.token'); ?>
-        <button type="submit" class="mle-advisory-btn mle-advisory-btn--primary">Create 9-Run SKAI Batch and Open SKAI</button>
+        <button type="button" class="mle-advisory-btn mle-advisory-btn--primary" data-nine-batch-submit="1">Create 9-Run SKAI Batch and Open SKAI</button>
       </form>
       <?php else: ?>
       <div class="mle-next-settings-run__disabled">Keep scoring saved runs first. A recommended settings test will appear once this lottery has enough evidence.</div>
@@ -18951,26 +18967,50 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
   'use strict';
   if (window.__MLE_9BATCH_SUBMIT_GUARD__) { return; }
   window.__MLE_9BATCH_SUBMIT_GUARD__ = true;
+  document.addEventListener('click', function(ev){
+    var trigger = ev.target && ev.target.closest ? ev.target.closest('[data-nine-batch-submit="1"]') : null;
+    var form;
+    if (!trigger) { return; }
+    form = trigger.form || (trigger.closest ? trigger.closest('form') : null);
+    if (!form || !form.classList || !form.classList.contains('mle-next-settings-run__form')) { return; }
+    if (form.getAttribute('data-mle-submit-locked') === '1') {
+      ev.preventDefault();
+      return;
+    }
+    ev.preventDefault();
+    if (typeof form.requestSubmit === 'function') { form.requestSubmit(trigger); }
+    else { form.submit(); }
+  }, false);
   document.addEventListener('submit', function(ev){
     var form = ev.target;
     var btn;
+    var lotteryField;
+    var lotteryId;
     if (!form || !form.classList || !form.classList.contains('mle-next-settings-run__form')) { return; }
     if (ev.defaultPrevented) { return; }
     if (form.getAttribute('data-mle-submit-locked') === '1') {
       ev.preventDefault();
       return;
     }
+    lotteryField = form.querySelector('input[name="lottery_id"]');
+    lotteryId = lotteryField ? parseInt(String(lotteryField.value || ''), 10) : 0;
+    if (!lotteryId || lotteryId <= 0) {
+      ev.preventDefault();
+      form.removeAttribute('data-mle-submit-locked');
+      if (window.alert) { window.alert('9BATCH could not start because the lottery selection is missing. Please refresh and try again.'); }
+      return;
+    }
     form.setAttribute('data-mle-submit-locked', '1');
-    btn = form.querySelector('button[type="submit"], input[type="submit"]');
+    btn = form.querySelector('[data-nine-batch-submit="1"], button[type="submit"], input[type="submit"]');
     if (btn) {
       btn.disabled = true;
       btn.setAttribute('aria-disabled', 'true');
       if (btn.tagName && btn.tagName.toLowerCase() === 'button') {
         btn.setAttribute('data-mle-original-label', btn.textContent || '');
-        btn.textContent = 'Creating 9BATCH...';
+        btn.textContent = 'Creating 9BATCH run...';
       } else if (btn.value) {
         btn.setAttribute('data-mle-original-label', btn.value);
-        btn.value = 'Creating 9BATCH...';
+        btn.value = 'Creating 9BATCH run...';
       }
     }
   }, false);
@@ -40430,11 +40470,13 @@ html.mle-v34-mode-full details.mle-compact-group .mle-compact-group__body{displa
 
   function submitFocusBatch(card){
     var f = batchForm(card);
+    var btn;
     if (!f) { return false; }
     if (f.getAttribute('data-mle-submit-locked') === '1') { return true; }
-    var btn = qs('button[type="submit"], input[type="submit"]', f);
-    if (btn && typeof f.requestSubmit === 'function') { f.requestSubmit(btn); }
-    else if (btn) { btn.click(); }
+    btn = qs('[data-nine-batch-submit="1"], button[type="submit"], input[type="submit"]', f);
+    if (typeof f.requestSubmit === 'function') {
+      if (btn) { f.requestSubmit(btn); } else { f.requestSubmit(); }
+    } else if (btn) { btn.click(); }
     else { f.submit(); }
     return true;
   }
