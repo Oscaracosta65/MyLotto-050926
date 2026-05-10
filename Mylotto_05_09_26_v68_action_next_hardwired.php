@@ -5750,6 +5750,176 @@ function mleAdvisoryResolveSkaiRegularRunUrl($db, $lotteryId)
     return mleAdvisoryBuildCanonicalSkaiLotteryUrl($db, (int)$lotteryId, array());
 }
 
+function mleAdvisoryReadIncomingSkaiRequest($app)
+{
+    $get = $app->input->get;
+    $aliases = array(
+        'gameId' => array('gameId', 'game', 'gameName', 'lottery'),
+        'st' => array('st', 'state'),
+        'stn' => array('stn', 'stateName'),
+        'gm' => array('gm', 'gameName', 'game'),
+        'batch_id' => array('batch_id', 'batchId', 'batch'),
+        'run_id' => array('run_id', 'runId'),
+    );
+    $result = array(
+        'gameId' => '',
+        'st' => '',
+        'stn' => '',
+        'gm' => '',
+        'batch_id' => 0,
+        'run_id' => 0,
+        'lottery_id' => (int)$get->getInt('lottery_id', 0),
+        'open' => trim((string)$get->getCmd('open', '')),
+        'mle_skai_batch' => (int)$get->getInt('mle_skai_batch', 0),
+        'mle_precision_batch' => (int)$get->getInt('mle_precision_batch', 0),
+        'param_sources' => array(),
+    );
+
+    foreach ($aliases as $canonical => $keys) {
+        foreach ($keys as $key) {
+            if ($canonical === 'batch_id' || $canonical === 'run_id') {
+                $value = (int)$get->getInt($key, 0);
+                if ($value > 0) {
+                    $result[$canonical] = $value;
+                    $result['param_sources'][$canonical] = $key;
+                    break;
+                }
+                continue;
+            }
+            $value = trim((string)$get->getString($key, ''));
+            if ($value !== '') {
+                $result[$canonical] = $value;
+                $result['param_sources'][$canonical] = $key;
+                break;
+            }
+        }
+    }
+
+    $result['gameId'] = preg_replace('/[^a-zA-Z0-9_\-.]/', '', substr((string)$result['gameId'], 0, 50));
+    $result['st'] = strtolower(preg_replace('/[^a-zA-Z0-9_\-.]/', '', substr((string)$result['st'], 0, 20)));
+    $result['stn'] = trim((string)$result['stn']);
+    $result['gm'] = trim((string)$result['gm']);
+
+    return $result;
+}
+
+function mleAdvisoryResolveIncomingSkaiRequest($db, $app)
+{
+    $request = mleAdvisoryReadIncomingSkaiRequest($app);
+    $request['matched_lottery_id'] = 0;
+    $request['matched_game_id'] = '';
+    $request['matched_state_code'] = '';
+    $request['matched_state_name'] = '';
+    $request['matched_game_name'] = '';
+
+    if ($request['gameId'] === '' && $request['st'] === '' && $request['stn'] === '' && $request['gm'] === '') {
+        return $request;
+    }
+
+    try {
+        $lotteryColsRaw = $db->getTableColumns('#__lotteries', false);
+        $lotteryCols = is_array($lotteryColsRaw) ? array_keys($lotteryColsRaw) : array();
+        $stateColsRaw = $db->getTableColumns('#__states', false);
+        $stateCols = is_array($stateColsRaw) ? array_keys($stateColsRaw) : array();
+        if (empty($lotteryCols)) {
+            return $request;
+        }
+
+        $select = array();
+        foreach (array('lottery_id','id','game_id','gameId','gid','game_code','game_alias','name','game_name','display_name','title','alias','state_id') as $c) {
+            if (in_array($c, $lotteryCols, true)) {
+                $select[] = 'l.' . $db->quoteName($c) . ' AS ' . $db->quoteName('l_' . $c);
+            }
+        }
+        foreach (array('state_id','name','state_name','state_code','code','abbr','abbrev','short_code','alias','title') as $c) {
+            if (in_array($c, $stateCols, true)) {
+                $select[] = 's.' . $db->quoteName($c) . ' AS ' . $db->quoteName('s_' . $c);
+            }
+        }
+        if (empty($select)) {
+            return $request;
+        }
+
+        $query = $db->getQuery(true)
+            ->select($select)
+            ->from($db->quoteName('#__lotteries', 'l'))
+            ->setLimit(250);
+        if (in_array('state_id', $lotteryCols, true) && in_array('state_id', $stateCols, true)) {
+            $query->join('LEFT', $db->quoteName('#__states', 's') . ' ON l.' . $db->quoteName('state_id') . ' = s.' . $db->quoteName('state_id'));
+        }
+        $db->setQuery($query);
+        $rows = $db->loadAssocList();
+    } catch (\Throwable $e) {
+        $rows = array();
+    }
+
+    if (!is_array($rows) || empty($rows)) {
+        return $request;
+    }
+
+    $wantedGameId = strtoupper(trim((string)$request['gameId']));
+    $wantedStateCode = strtolower(trim((string)$request['st']));
+    $wantedStateName = strtolower(trim((string)$request['stn']));
+    $wantedGameName = strtolower(trim((string)$request['gm']));
+
+    foreach ($rows as $row) {
+        $rowLotteryId = (int)($row['l_lottery_id'] ?? $row['l_id'] ?? 0);
+        if ($rowLotteryId <= 0) {
+            continue;
+        }
+        $rowGameId = '';
+        foreach (array('l_game_id','l_gameId','l_gid','l_game_code','l_game_alias') as $k) {
+            $candidate = trim((string)($row[$k] ?? ''));
+            if ($candidate !== '') { $rowGameId = $candidate; break; }
+        }
+        $rowGameName = '';
+        foreach (array('l_game_name','l_name','l_display_name','l_title','l_alias') as $k) {
+            $candidate = trim((string)($row[$k] ?? ''));
+            if ($candidate !== '') { $rowGameName = $candidate; break; }
+        }
+        $rowStateName = '';
+        foreach (array('s_name','s_state_name','s_title') as $k) {
+            $candidate = trim((string)($row[$k] ?? ''));
+            if ($candidate !== '') { $rowStateName = $candidate; break; }
+        }
+        $rowStateCode = '';
+        foreach (array('s_state_code','s_code','s_abbr','s_abbrev','s_short_code','s_alias') as $k) {
+            $candidate = trim((string)($row[$k] ?? ''));
+            if ($candidate !== '') { $rowStateCode = strtolower($candidate); break; }
+        }
+        if ($rowStateCode === '' && $rowStateName !== '') {
+            $rowStateCode = mleAdvisoryNormalizeStateCodeForSkai($rowStateName, '');
+        }
+
+        $gameIdMatch = ($wantedGameId !== '' && strtoupper($rowGameId) === $wantedGameId);
+        $gameNameMatch = ($wantedGameName !== '' && strtolower($rowGameName) === $wantedGameName);
+        $stateCodeMatch = ($wantedStateCode !== '' && $rowStateCode === $wantedStateCode);
+        $stateNameMatch = ($wantedStateName !== '' && strtolower($rowStateName) === $wantedStateName);
+
+        if (!$gameIdMatch && !$gameNameMatch) {
+            continue;
+        }
+        if ($wantedStateCode !== '' && !$stateCodeMatch && $wantedStateName !== '' && !$stateNameMatch) {
+            continue;
+        }
+        if ($wantedStateName !== '' && !$stateNameMatch && $wantedStateCode !== '' && !$stateCodeMatch) {
+            continue;
+        }
+
+        $request['matched_lottery_id'] = $rowLotteryId;
+        $request['matched_game_id'] = $rowGameId;
+        $request['matched_state_code'] = $rowStateCode;
+        $request['matched_state_name'] = $rowStateName;
+        $request['matched_game_name'] = $rowGameName;
+        if ($request['lottery_id'] <= 0) {
+            $request['lottery_id'] = $rowLotteryId;
+        }
+        break;
+    }
+
+    return $request;
+}
+
 
 /**
  * [[MLE_HISTORY_HORIZON_DISCOVERY_BATCH]]
@@ -17217,7 +17387,18 @@ foreach ($__mleAdvCards as $__scanCard) {
     }
 }
 unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
+$__mleIncomingSkaiRequest = mleAdvisoryResolveIncomingSkaiRequest($db, $app);
+$__mleIncomingSkaiRequestJson = htmlspecialchars(json_encode($__mleIncomingSkaiRequest, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8');
 ?>
+<div id="mle-skai-request-context" data-skai-request="<?php echo $__mleIncomingSkaiRequestJson; ?>" hidden></div>
+<script>
+(function(){
+  var el = document.getElementById('mle-skai-request-context');
+  var raw = el ? (el.getAttribute('data-skai-request') || '{}') : '{}';
+  try { window.__MLE_SKAI_REQUEST_CONTEXT__ = JSON.parse(raw); }
+  catch (e) { window.__MLE_SKAI_REQUEST_CONTEXT__ = {}; }
+})();
+</script>
 <div id="advisory-board" class="mle-advisory-board mle-elite-cockpit" role="region" aria-label="MyLottoExpert SKAI Decision Center">
   <div class="mle-advisory-board__header">
     <div class="mle-advisory-board__eyebrow">SKAI Decision Center</div>
@@ -17312,8 +17493,13 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
   }
   unset($__advVisual2, $__vr, $__vh);
   $__advLotteryUrl = isset($lottoUrlsById[$__advLid]) ? htmlspecialchars((string)$lottoUrlsById[$__advLid], ENT_QUOTES, 'UTF-8') : '';
+  $__advRegularSkaiMeta = mleAdvisoryResolveSkaiLotteryUrlMeta($db, (int)$__advLid);
   $__advRegularSkaiUrlRaw = mleAdvisoryResolveSkaiRegularRunUrl($db, (int)$__advLid);
   $__advRegularSkaiUrl = htmlspecialchars((string)$__advRegularSkaiUrlRaw, ENT_QUOTES, 'UTF-8');
+  $__advSkaiGameIdAttr = htmlspecialchars((string)($__advRegularSkaiMeta['gameId'] ?? ''), ENT_QUOTES, 'UTF-8');
+  $__advSkaiStateCodeAttr = htmlspecialchars((string)($__advRegularSkaiMeta['st'] ?? ''), ENT_QUOTES, 'UTF-8');
+  $__advSkaiStateNameAttr = htmlspecialchars((string)($__advRegularSkaiMeta['stn'] ?? ''), ENT_QUOTES, 'UTF-8');
+  $__advSkaiGameNameAttr = htmlspecialchars((string)($__advRegularSkaiMeta['gm'] ?? ''), ENT_QUOTES, 'UTF-8');
   $__advSKey = (string)($__advSAdv['setting'] ?? '');
   $__advSLabelRaw = (string)($__advSAdv['setting_label'] ?? '');
   $__advSLabel = htmlspecialchars($__advSLabelRaw, ENT_QUOTES, 'UTF-8');
@@ -17739,7 +17925,7 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
   $__advFocusTestStatusEsc = htmlspecialchars((string)$__advFocusTestStatus, ENT_QUOTES, 'UTF-8');
   unset($____plkCtrlRaw);
 ?>
-<div class="mle-advisory-card mle-optimization-card" id="mle-adv-card-<?php echo $__advLid; ?>" data-lottery-id="<?php echo $__advLid; ?>" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-skai-url="<?php echo $__advRegularSkaiUrl; ?>" data-skai-regular-url-b64="<?php echo htmlspecialchars(base64_encode((string)$__advRegularSkaiUrlRaw), ENT_QUOTES, 'UTF-8'); ?>">
+<div class="mle-advisory-card mle-optimization-card" id="mle-adv-card-<?php echo $__advLid; ?>" data-lottery-id="<?php echo $__advLid; ?>" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-skai-url="<?php echo $__advRegularSkaiUrl; ?>" data-skai-regular-url-b64="<?php echo htmlspecialchars(base64_encode((string)$__advRegularSkaiUrlRaw), ENT_QUOTES, 'UTF-8'); ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>">
   <div class="mle-advisory-card__collapsed">
     <div class="mle-advisory-card__collapsed-left">
       <div class="mle-card-title-block">
@@ -17759,7 +17945,8 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
         <span class="mle-adv-meta-item mle-adv-meta-item--method mle-adv-meta-item--method-<?php echo htmlspecialchars($__advMethodCssKey, ENT_QUOTES, 'UTF-8'); ?>"><span class="mle-adv-meta-label">Evidence direction <span class="mle-help-tip" tabindex="0" role="button" aria-label="Evidence direction help" data-help="The strategy direction currently performing best among this lottery's scored runs. SKAI is the flagship engine, but MCMC, Neural AI, Skip/Hit, and Frequency can lead when the saved evidence supports them.">?</span>:</span> <strong><?php echo $__advTopMLabel; ?></strong></span>
         <span class="mle-adv-meta-item mle-adv-meta-item--track mle-adv-meta-item--track-<?php echo $__advMethodBadge; ?>"><span class="mle-adv-meta-label">Learning track <span class="mle-help-tip" tabindex="0" role="button" aria-label="Learning track help" data-help="Shows how LottoExpert is treating the leading method: SKAI as the flagship precision engine, MCMC as a sampling track, Neural AI as a classic AI track, Skip/Hit as a timing signal, or Frequency as a baseline.">?</span>:</span> <strong><?php echo $__advMethodShortTrack; ?></strong></span>
         <span class="mle-adv-meta-item mle-adv-meta-item--proof"><span class="mle-adv-meta-label">Evidence level <span class="mle-help-tip" tabindex="0" role="button" aria-label="Evidence level help" data-help="Shows how mature the evidence is for this lottery. It gets stronger only when completed draw cycles and scored runs build up over time.">?</span>:</span> <span class="mle-proof-badge <?php echo $__advPLCss; ?>"><?php echo $__advPLLabel; ?></span></span>
-        <button type="button" class="mle-adv-meta-item <?php echo $__advNextCss; ?> mle-action-button-state--<?php echo htmlspecialchars($__advActionStatusCss, ENT_QUOTES, 'UTF-8'); ?><?php echo $__advActionTargetMode === 'precision_batch' ? ' mle-action-button-state--urgent-batch' : ''; ?> mle-status-action-jump mle-section-shortcut-btn" style="<?php echo htmlspecialchars($__advActionInlineStyle, ENT_QUOTES, 'UTF-8'); ?>" data-action-target="<?php echo htmlspecialchars($__advActionTargetMode, ENT_QUOTES, 'UTF-8'); ?>" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-target-section="<?php echo htmlspecialchars($__advActionJumpTargetId, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $__advActionJumpPanelId !== '' ? ' data-target-panel="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '" data-open-details="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '"' : ''; ?> aria-label="<?php echo htmlspecialchars($__advActionJumpLabel, ENT_QUOTES, 'UTF-8'); ?>"><span class="mle-action-status-badge mle-action-status-badge--<?php echo $__advActionStatusCss; ?>"><?php echo htmlspecialchars($__advActionStatusText, ENT_QUOTES, 'UTF-8'); ?></span><span class="mle-adv-meta-label">Next <span class="mle-help-tip" tabindex="0" role="button" aria-label="Recommended next step help" data-help="The most useful action for this lottery right now. Click this chip to jump directly to the relevant action area. If runs are pending, review them. Otherwise, go to the 9-run batch section.">?</span>:</span> <strong><?php echo htmlspecialchars($__advActionChipText, ENT_QUOTES, 'UTF-8'); ?></strong></button>
+        <button type="button" class="mle-adv-meta-item <?php echo $__advNextCss; ?> mle-action-button-state--<?php echo htmlspecialchars($__advActionStatusCss, ENT_QUOTES, 'UTF-8'); ?><?php echo $__advActionTargetMode === 'precision_batch' ? ' mle-action-button-state--urgent-batch' : ''; ?> mle-status-action-jump mle-section-shortcut-btn" style="<?php echo htmlspecialchars($__advActionInlineStyle, ENT_QUOTES, 'UTF-8'); ?>" data-action-target="<?php echo htmlspecialchars($__advActionTargetMode, ENT_QUOTES, 'UTF-8'); ?>" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-target-section="<?php echo htmlspecialchars($__advActionJumpTargetId, ENT_QUOTES, 'UTF-8'); ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>"<?php echo $__advActionJumpPanelId !== '' ? ' data-target-panel="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '" data-open-details="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '"' : ''; ?> aria-label="<?php echo htmlspecialchars($__advActionJumpLabel, ENT_QUOTES, 'UTF-8'); ?>"><span class="mle-action-status-badge mle-action-status-badge--<?php echo $__advActionStatusCss; ?>"><?php echo htmlspecialchars($__advActionStatusText, ENT_QUOTES, 'UTF-8'); ?></span><span class="mle-adv-meta-label">Next <span class="mle-help-tip" tabindex="0" role="button" aria-label="Recommended next step help" data-help="The most useful action for this lottery right now. Click this chip to jump directly to the relevant action area. If runs are pending, review them. Otherwise, go to the 9-run batch section.">?</span>:</span> <strong><?php echo htmlspecialchars($__advActionChipText, ENT_QUOTES, 'UTF-8'); ?></strong></button>
+        <a class="mle-adv-meta-item mle-adv-meta-item--skai-link" href="<?php echo $__advRegularSkaiUrl; ?>" target="_self" rel="noopener" data-mle-confirm="regular-skai" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>" aria-label="Open SKAI for <?php echo $__advLname; ?>"><span class="mle-action-status-badge mle-action-status-badge--next">SKAI</span><span class="mle-adv-meta-label">Open:</span> <strong>SKAI</strong></a>
       </div>
       <div class="mle-adv-run-stats" aria-label="Run statistics for <?php echo $__advLname; ?>">
         <span class="mle-adv-stat-chip mle-adv-stat-chip--total" title="Total active saved runs for this lottery">
@@ -17788,7 +17975,8 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
       <div class="mle-lottery-scan-row mle-lottery-scan-row--<?php echo htmlspecialchars($__advWindowMode, ENT_QUOTES, 'UTF-8'); ?>" aria-label="Immediate status summary for <?php echo $__advLname; ?>">
         <span class="mle-scan-pill mle-scan-pill--direction"><span class="mle-scan-pill__k">Direction</span><strong><?php echo $__advTopMLabel; ?></strong></span>
         <span class="mle-scan-pill mle-scan-pill--evidence <?php echo $__advPLCss; ?>"><span class="mle-scan-pill__k">Evidence</span><strong><?php echo $__advPLLabel; ?></strong></span>
-        <button type="button" class="mle-scan-pill <?php echo htmlspecialchars($__advScanStateClass, ENT_QUOTES, 'UTF-8'); ?><?php echo $__advActionTargetMode === 'precision_batch' ? ' mle-scan-pill--urgent-batch' : ''; ?> mle-scan-pill--clickable mle-section-shortcut-btn" style="<?php echo htmlspecialchars($__advActionInlineStyle, ENT_QUOTES, 'UTF-8'); ?>" data-action-target="<?php echo htmlspecialchars($__advActionTargetMode, ENT_QUOTES, 'UTF-8'); ?>" data-target-section="<?php echo htmlspecialchars($__advActionJumpTargetId, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $__advActionJumpPanelId !== '' ? ' data-target-panel="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '" data-open-details="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '"' : ''; ?> aria-label="<?php echo htmlspecialchars($__advActionJumpLabel, ENT_QUOTES, 'UTF-8'); ?>"><span class="mle-scan-pill__k">Next</span><strong><?php echo htmlspecialchars($__advActionChipText, ENT_QUOTES, 'UTF-8'); ?></strong></button>
+        <button type="button" class="mle-scan-pill <?php echo htmlspecialchars($__advScanStateClass, ENT_QUOTES, 'UTF-8'); ?><?php echo $__advActionTargetMode === 'precision_batch' ? ' mle-scan-pill--urgent-batch' : ''; ?> mle-scan-pill--clickable mle-section-shortcut-btn" style="<?php echo htmlspecialchars($__advActionInlineStyle, ENT_QUOTES, 'UTF-8'); ?>" data-action-target="<?php echo htmlspecialchars($__advActionTargetMode, ENT_QUOTES, 'UTF-8'); ?>" data-target-section="<?php echo htmlspecialchars($__advActionJumpTargetId, ENT_QUOTES, 'UTF-8'); ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>"<?php echo $__advActionJumpPanelId !== '' ? ' data-target-panel="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '" data-open-details="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '"' : ''; ?> aria-label="<?php echo htmlspecialchars($__advActionJumpLabel, ENT_QUOTES, 'UTF-8'); ?>"><span class="mle-scan-pill__k">Next</span><strong><?php echo htmlspecialchars($__advActionChipText, ENT_QUOTES, 'UTF-8'); ?></strong></button>
+        <a class="mle-scan-pill mle-scan-pill--skai-link" href="<?php echo $__advRegularSkaiUrl; ?>" target="_self" rel="noopener" data-mle-confirm="regular-skai" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>" aria-label="Open SKAI for <?php echo $__advLname; ?>"><span class="mle-scan-pill__k">Open</span><strong>SKAI</strong></a>
         <span class="mle-scan-pill <?php echo $__advPendingRuns > 0 ? 'mle-scan-pill--pending' : 'mle-scan-pill--fresh-runs'; ?>"><span class="mle-scan-pill__k"><?php echo htmlspecialchars($__advPendingScanKey, ENT_QUOTES, 'UTF-8'); ?></span><strong><?php echo htmlspecialchars($__advPendingScanValue, ENT_QUOTES, 'UTF-8'); ?></strong></span>
       </div>
       <?php /* [[MLE_V23_COMPACT_SUMMARY]] Collapsed card shortcuts removed. Expanded-card shortcuts remain available inside the opened lottery workspace. */ ?>
@@ -17823,7 +18011,7 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
         <?php elseif ($__advHasAdv): ?>
           <button type="button" class="mle-advisory-btn mle-advisory-btn--primary mle-section-shortcut-btn" data-target-section="<?php echo $__advNextRunSectionId; ?>"><?php echo $__advSimpleStepCtaEsc; ?></button>
         <?php else: ?>
-          <a class="mle-advisory-btn mle-advisory-btn--primary" href="<?php echo $__advRegularSkaiUrl; ?>" target="_blank" rel="noopener noreferrer" data-mle-confirm="regular-skai"><?php echo $__advSimpleStepCtaEsc; ?></a>
+          <a class="mle-advisory-btn mle-advisory-btn--primary" href="<?php echo $__advRegularSkaiUrl; ?>" target="_self" rel="noopener" data-mle-confirm="regular-skai" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>"><?php echo $__advSimpleStepCtaEsc; ?></a>
         <?php endif; ?>
       </div>
     </section>
@@ -18283,7 +18471,7 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
           <div class="mle-skai-batch-test__line"><strong>Current evidence:</strong> <?php echo $__advBatchEvidence; ?></div>
           <?php if ($__advTopMKey === 'skai'): ?>
           <div class="mle-skai-batch-test__line"><strong>Beginner step:</strong> Run regular SKAI prediction batches first. Aim for about 5 completed regular batch cycles before expecting a Precision Focus batch recommendation.</div>
-          <p style="margin-top:10px"><a class="mle-advisory-btn mle-advisory-btn--secondary" href="<?php echo $__advRegularSkaiUrl; ?>" target="_blank" rel="noopener noreferrer" data-mle-confirm="regular-skai">Open SKAI for regular batch runs</a></p>
+          <p style="margin-top:10px"><a class="mle-advisory-btn mle-advisory-btn--secondary" href="<?php echo $__advRegularSkaiUrl; ?>" target="_self" rel="noopener" data-mle-confirm="regular-skai" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>">Open SKAI for regular batch runs</a></p>
           <?php else: ?>
           <div class="mle-skai-batch-test__line"><strong>Active method:</strong> <?php echo $__advMethodTrackLabel; ?> — <?php echo $__advMethodRoleLabel; ?></div>
           <div class="mle-skai-batch-test__line"><strong>Beginner step:</strong> Keep saving and scoring <?php echo $__advTopMLabel; ?> runs for this lottery. MyLottoExpert will learn this track now; automated focus-batch handoff for this method will be added on its engine page later.</div>
@@ -18415,12 +18603,22 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
                     $__qSkaiUrl = mleAdvisoryResolveSkaiBatchOpenUrl($db, (int)$__advLid, (int)$__qBatchId);
                   ?>
                   <div class="mle-skai-batch-test__form" style="margin-top:8px;">
-                    <button type="button"
-                      class="mle-advisory-btn mle-advisory-btn--primary mle-open-skai-precision-batch" data-mle-confirm="precision-open"
+                    <a
+                      class="mle-advisory-btn mle-advisory-btn--primary mle-open-skai-precision-batch"
+                      href="<?php echo htmlspecialchars($__qSkaiUrl, ENT_QUOTES, 'UTF-8'); ?>"
+                      target="_self"
+                      rel="noopener"
+                      data-mle-confirm="precision-open"
                       data-skai-url="<?php echo htmlspecialchars($__qSkaiUrl, ENT_QUOTES, 'UTF-8'); ?>"
+                      data-batch-id="<?php echo (int)$__qBatchId; ?>"
+                      data-lottery-id="<?php echo (int)$__advLid; ?>"
+                      data-game-id="<?php echo $__advSkaiGameIdAttr; ?>"
+                      data-st="<?php echo $__advSkaiStateCodeAttr; ?>"
+                      data-stn="<?php echo $__advSkaiStateNameAttr; ?>"
+                      data-gm="<?php echo $__advSkaiGameNameAttr; ?>"
                       data-batch-payload="<?php echo $__qBridgePayloadJson; ?>">
                       Open Batch in SKAI
-                    </button>
+                    </a>
                     <small>Opens SKAI so the user can watch the 9-run Precision Focus progress panel and SKAI can auto-save each completed run.</small>
                   </div>
                 <?php endif; ?>
@@ -18499,7 +18697,7 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
         <input type="hidden" name="proof_label" value="<?php echo $__advPLLabel; ?>">
         <input type="hidden" name="reason" value="<?php echo $__advWhy; ?>">
         <?php echo \Joomla\CMS\HTML\HTMLHelper::_('form.token'); ?>
-        <button type="button" class="mle-advisory-btn mle-advisory-btn--primary" data-nine-batch-submit="1">Create 9-Run SKAI Batch and Open SKAI</button>
+        <button type="button" class="mle-advisory-btn mle-advisory-btn--primary" data-nine-batch-submit="1" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>">Create 9-Run SKAI Batch and Open SKAI</button>
       </form>
       <?php else: ?>
       <div class="mle-next-settings-run__disabled">Keep scoring saved runs first. A recommended settings test will appear once this lottery has enough evidence.</div>
@@ -18942,23 +19140,29 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
   window.__MLE_SKAI_PRECISION_BRIDGE_INIT__ = true;
   document.addEventListener('click', function(ev){
     var btn = ev.target && ev.target.closest ? ev.target.closest('.mle-open-skai-precision-batch') : null;
+    var href = '';
     if (!btn) { return; }
-    ev.preventDefault();
     var payloadRaw = btn.getAttribute('data-batch-payload') || '';
     var url = btn.getAttribute('data-skai-url') || '';
+    href = btn.getAttribute('href') || '';
+    if (!url) { url = href; }
+    ev.preventDefault();
     try {
       var payload = JSON.parse(payloadRaw);
       if (!payload || !payload.runs || payload.runs.length !== 9) {
+        if (url) { window.location.href = url; return; }
         alert('This Precision Focus batch does not contain exactly 9 runnable SKAI settings.');
         return;
       }
       localStorage.setItem('mle_precision_lock_batch_payload_v1', JSON.stringify(payload));
       sessionStorage.setItem('mle_precision_lock_batch_payload_v1', JSON.stringify(payload));
     } catch (e) {
+      if (url) { window.location.href = url; return; }
       alert('This Precision Focus batch could not be prepared for SKAI. Please refresh and try again.');
       return;
     }
-    if (url) { window.location.href = url; }
+    if (url) { window.location.href = url; return; }
+    alert('This Precision Focus batch is missing its SKAI destination URL. Please refresh and try again.');
   }, false);
 })();
 </script>
@@ -19032,6 +19236,9 @@ unset($__scanCard, $__scanLid, $__scanLname, $__scanBatchData, $__scanReady);
 .mle-advisory-card__lottery-name{font-size:clamp(1.15rem,2.1vw,1.55rem);line-height:1.15;margin:0;color:#0A1A33;letter-spacing:-.02em;font-family:"Inter","SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;}
 .mle-card-title-subtitle{font-size:.78rem;color:#7F8DAA;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-top:4px;font-family:"Inter","SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;}
 .mle-advisory-card__collapsed-meta{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:10px;color:#334155;font-size:.9rem;}
+.mle-adv-meta-item--skai-link,.mle-scan-pill--skai-link{text-decoration:none !important;background:linear-gradient(135deg,#0f172a 0%,#1d4ed8 52%,#2563eb 100%) !important;color:#fff !important;border:1px solid rgba(147,197,253,.76) !important;box-shadow:0 12px 26px rgba(37,99,235,.18);}
+.mle-adv-meta-item--skai-link strong,.mle-scan-pill--skai-link strong,.mle-scan-pill--skai-link .mle-scan-pill__k{color:#fff !important;}
+.mle-adv-meta-item--skai-link:hover,.mle-scan-pill--skai-link:hover,.mle-adv-meta-item--skai-link:focus,.mle-scan-pill--skai-link:focus{filter:brightness(1.04);transform:translateY(-1px);}
 .mle-adv-meta-sep{color:#CBD5E1;}
 .mle-card-roof-map{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
 .mle-card-roof-map span{display:inline-flex;align-items:center;border:1px solid rgba(28,102,255,.16);background:#F8FAFC;color:#0A1A33;border-radius:999px;padding:5px 8px;font-size:.72rem;font-weight:800;}
@@ -40491,6 +40698,15 @@ html.mle-v34-mode-full details.mle-compact-group .mle-compact-group__body{displa
     return a;
   }
 
+  function applySkaiMeta(el, card){
+    if (!el || !card || !card.getAttribute) { return el; }
+    ['game-id','st','stn','gm'].forEach(function(name){
+      var value = card.getAttribute('data-' + name) || '';
+      if (value) { el.setAttribute('data-' + name, value); }
+    });
+    return el;
+  }
+
   function makeButton(label, cls){
     var b = document.createElement('button');
     b.type = 'button';
@@ -40548,13 +40764,13 @@ html.mle-v34-mode-full details.mle-compact-group .mle-compact-group__body{displa
       var fb = makeButton(recButton, 'mle-v37-btn mle-v37-btn--primary');
       fb.addEventListener('click', function(){ if (!submitFocusBatch(card)) { reviewPending(card); } });
       recActions.appendChild(fb);
-      if (url) { recActions.appendChild(makeLink('Open SKAI Regular 9-Batch Instead', url, 'mle-v37-btn mle-v37-btn--secondary')); }
+      if (url) { recActions.appendChild(applySkaiMeta(makeLink('Open SKAI Regular 9-Batch Instead', url, 'mle-v37-btn mle-v37-btn--secondary'), card)); }
     } else {
-      recActions.appendChild(makeLink(recButton, url, 'mle-v37-btn mle-v37-btn--primary'));
+      recActions.appendChild(applySkaiMeta(makeLink(recButton, url, 'mle-v37-btn mle-v37-btn--primary'), card));
     }
 
     var singleActions = qs('.mle-v37-run-option:not(.mle-v37-run-option--recommended) .mle-v37-run-actions', panel);
-    singleActions.appendChild(makeLink('Open SKAI Single Prediction', url, 'mle-v37-btn mle-v37-btn--secondary mle-v63-single-link'));
+    singleActions.appendChild(applySkaiMeta(makeLink('Open SKAI Single Prediction', url, 'mle-v37-btn mle-v37-btn--secondary mle-v63-single-link'), card));
 
     var anchor = qs('.mle-v33-command', card) || qs('.mle-v34-priority-stack', card) || qs('.mle-card-next-guide', card) || qs('.mle-advisory-card__body', card);
     if (!anchor) { return; }
@@ -40572,6 +40788,7 @@ html.mle-v34-mode-full details.mle-compact-group .mle-compact-group__body{displa
             a.href = url;
             a.target = '_self';
             a.setAttribute('data-skai-regular-url', url);
+            applySkaiMeta(a, card);
           }
         });
       }
