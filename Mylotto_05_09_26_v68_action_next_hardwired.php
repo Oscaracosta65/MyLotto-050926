@@ -17946,7 +17946,7 @@ $__mleIncomingSkaiRequestJson = htmlspecialchars(json_encode($__mleIncomingSkaiR
         <span class="mle-adv-meta-item mle-adv-meta-item--track mle-adv-meta-item--track-<?php echo $__advMethodBadge; ?>"><span class="mle-adv-meta-label">Learning track <span class="mle-help-tip" tabindex="0" role="button" aria-label="Learning track help" data-help="Shows how LottoExpert is treating the leading method: SKAI as the flagship precision engine, MCMC as a sampling track, Neural AI as a classic AI track, Skip/Hit as a timing signal, or Frequency as a baseline.">?</span>:</span> <strong><?php echo $__advMethodShortTrack; ?></strong></span>
         <span class="mle-adv-meta-item mle-adv-meta-item--proof"><span class="mle-adv-meta-label">Evidence level <span class="mle-help-tip" tabindex="0" role="button" aria-label="Evidence level help" data-help="Shows how mature the evidence is for this lottery. It gets stronger only when completed draw cycles and scored runs build up over time.">?</span>:</span> <span class="mle-proof-badge <?php echo $__advPLCss; ?>"><?php echo $__advPLLabel; ?></span></span>
         <button type="button" class="mle-adv-meta-item <?php echo $__advNextCss; ?> mle-action-button-state--<?php echo htmlspecialchars($__advActionStatusCss, ENT_QUOTES, 'UTF-8'); ?><?php echo $__advActionTargetMode === 'precision_batch' ? ' mle-action-button-state--urgent-batch' : ''; ?> mle-status-action-jump mle-section-shortcut-btn" style="<?php echo htmlspecialchars($__advActionInlineStyle, ENT_QUOTES, 'UTF-8'); ?>" data-action-target="<?php echo htmlspecialchars($__advActionTargetMode, ENT_QUOTES, 'UTF-8'); ?>" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-target-section="<?php echo htmlspecialchars($__advActionJumpTargetId, ENT_QUOTES, 'UTF-8'); ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>"<?php echo $__advActionJumpPanelId !== '' ? ' data-target-panel="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '" data-open-details="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '"' : ''; ?> aria-label="<?php echo htmlspecialchars($__advActionJumpLabel, ENT_QUOTES, 'UTF-8'); ?>"><span class="mle-action-status-badge mle-action-status-badge--<?php echo $__advActionStatusCss; ?>"><?php echo htmlspecialchars($__advActionStatusText, ENT_QUOTES, 'UTF-8'); ?></span><span class="mle-adv-meta-label">Next <span class="mle-help-tip" tabindex="0" role="button" aria-label="Recommended next step help" data-help="The most useful action for this lottery right now. Click this chip to jump directly to the relevant action area. If runs are pending, review them. Otherwise, go to the 9-run batch section.">?</span>:</span> <strong><?php echo htmlspecialchars($__advActionChipText, ENT_QUOTES, 'UTF-8'); ?></strong></button>
-        <a class="mle-adv-meta-item mle-adv-meta-item--skai-link" href="<?php echo $__advRegularSkaiUrl; ?>" target="_self" rel="noopener" data-mle-confirm="regular-skai" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>" aria-label="Open SKAI for <?php echo $__advLname; ?>"><span class="mle-action-status-badge mle-action-status-badge--next">SKAI</span><span class="mle-adv-meta-label">Open:</span> <strong>SKAI</strong></a>
+        <a class="mle-adv-meta-item mle-adv-meta-item--skai-link" href="<?php echo $__advRegularSkaiUrl; ?>" target="_blank" rel="noopener noreferrer" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>" aria-label="Open SKAI for <?php echo $__advLname; ?>"><span class="mle-action-status-badge mle-action-status-badge--next">SKAI</span><span class="mle-adv-meta-label">Open:</span> <strong>SKAI</strong></a>
       </div>
       <div class="mle-adv-run-stats" aria-label="Run statistics for <?php echo $__advLname; ?>">
         <span class="mle-adv-stat-chip mle-adv-stat-chip--total" title="Total active saved runs for this lottery">
@@ -17976,7 +17976,7 @@ $__mleIncomingSkaiRequestJson = htmlspecialchars(json_encode($__mleIncomingSkaiR
         <span class="mle-scan-pill mle-scan-pill--direction"><span class="mle-scan-pill__k">Direction</span><strong><?php echo $__advTopMLabel; ?></strong></span>
         <span class="mle-scan-pill mle-scan-pill--evidence <?php echo $__advPLCss; ?>"><span class="mle-scan-pill__k">Evidence</span><strong><?php echo $__advPLLabel; ?></strong></span>
         <button type="button" class="mle-scan-pill <?php echo htmlspecialchars($__advScanStateClass, ENT_QUOTES, 'UTF-8'); ?><?php echo $__advActionTargetMode === 'precision_batch' ? ' mle-scan-pill--urgent-batch' : ''; ?> mle-scan-pill--clickable mle-section-shortcut-btn" style="<?php echo htmlspecialchars($__advActionInlineStyle, ENT_QUOTES, 'UTF-8'); ?>" data-action-target="<?php echo htmlspecialchars($__advActionTargetMode, ENT_QUOTES, 'UTF-8'); ?>" data-target-section="<?php echo htmlspecialchars($__advActionJumpTargetId, ENT_QUOTES, 'UTF-8'); ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>"<?php echo $__advActionJumpPanelId !== '' ? ' data-target-panel="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '" data-open-details="' . htmlspecialchars($__advActionJumpPanelId, ENT_QUOTES, 'UTF-8') . '"' : ''; ?> aria-label="<?php echo htmlspecialchars($__advActionJumpLabel, ENT_QUOTES, 'UTF-8'); ?>"><span class="mle-scan-pill__k">Next</span><strong><?php echo htmlspecialchars($__advActionChipText, ENT_QUOTES, 'UTF-8'); ?></strong></button>
-        <a class="mle-scan-pill mle-scan-pill--skai-link" href="<?php echo $__advRegularSkaiUrl; ?>" target="_self" rel="noopener" data-mle-confirm="regular-skai" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>" aria-label="Open SKAI for <?php echo $__advLname; ?>"><span class="mle-scan-pill__k">Open</span><strong>SKAI</strong></a>
+        <a class="mle-scan-pill mle-scan-pill--skai-link" href="<?php echo $__advRegularSkaiUrl; ?>" target="_blank" rel="noopener noreferrer" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>" aria-label="Open SKAI for <?php echo $__advLname; ?>"><span class="mle-scan-pill__k">Open</span><strong>SKAI</strong></a>
         <span class="mle-scan-pill <?php echo $__advPendingRuns > 0 ? 'mle-scan-pill--pending' : 'mle-scan-pill--fresh-runs'; ?>"><span class="mle-scan-pill__k"><?php echo htmlspecialchars($__advPendingScanKey, ENT_QUOTES, 'UTF-8'); ?></span><strong><?php echo htmlspecialchars($__advPendingScanValue, ENT_QUOTES, 'UTF-8'); ?></strong></span>
       </div>
       <?php /* [[MLE_V23_COMPACT_SUMMARY]] Collapsed card shortcuts removed. Expanded-card shortcuts remain available inside the opened lottery workspace. */ ?>
@@ -18011,7 +18011,7 @@ $__mleIncomingSkaiRequestJson = htmlspecialchars(json_encode($__mleIncomingSkaiR
         <?php elseif ($__advHasAdv): ?>
           <button type="button" class="mle-advisory-btn mle-advisory-btn--primary mle-section-shortcut-btn" data-target-section="<?php echo $__advNextRunSectionId; ?>"><?php echo $__advSimpleStepCtaEsc; ?></button>
         <?php else: ?>
-          <a class="mle-advisory-btn mle-advisory-btn--primary" href="<?php echo $__advRegularSkaiUrl; ?>" target="_self" rel="noopener" data-mle-confirm="regular-skai" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>"><?php echo $__advSimpleStepCtaEsc; ?></a>
+          <a class="mle-advisory-btn mle-advisory-btn--primary" href="<?php echo $__advRegularSkaiUrl; ?>" target="_blank" rel="noopener noreferrer" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>"><?php echo $__advSimpleStepCtaEsc; ?></a>
         <?php endif; ?>
       </div>
     </section>
@@ -18471,7 +18471,7 @@ $__mleIncomingSkaiRequestJson = htmlspecialchars(json_encode($__mleIncomingSkaiR
           <div class="mle-skai-batch-test__line"><strong>Current evidence:</strong> <?php echo $__advBatchEvidence; ?></div>
           <?php if ($__advTopMKey === 'skai'): ?>
           <div class="mle-skai-batch-test__line"><strong>Beginner step:</strong> Run regular SKAI prediction batches first. Aim for about 5 completed regular batch cycles before expecting a Precision Focus batch recommendation.</div>
-          <p style="margin-top:10px"><a class="mle-advisory-btn mle-advisory-btn--secondary" href="<?php echo $__advRegularSkaiUrl; ?>" target="_self" rel="noopener" data-mle-confirm="regular-skai" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>">Open SKAI for regular batch runs</a></p>
+          <p style="margin-top:10px"><a class="mle-advisory-btn mle-advisory-btn--secondary" href="<?php echo $__advRegularSkaiUrl; ?>" target="_blank" rel="noopener noreferrer" data-skai-regular-url="<?php echo $__advRegularSkaiUrl; ?>" data-game-id="<?php echo $__advSkaiGameIdAttr; ?>" data-st="<?php echo $__advSkaiStateCodeAttr; ?>" data-stn="<?php echo $__advSkaiStateNameAttr; ?>" data-gm="<?php echo $__advSkaiGameNameAttr; ?>">Open SKAI for regular batch runs</a></p>
           <?php else: ?>
           <div class="mle-skai-batch-test__line"><strong>Active method:</strong> <?php echo $__advMethodTrackLabel; ?> — <?php echo $__advMethodRoleLabel; ?></div>
           <div class="mle-skai-batch-test__line"><strong>Beginner step:</strong> Keep saving and scoring <?php echo $__advTopMLabel; ?> runs for this lottery. MyLottoExpert will learn this track now; automated focus-batch handoff for this method will be added on its engine page later.</div>
@@ -18606,8 +18606,8 @@ $__mleIncomingSkaiRequestJson = htmlspecialchars(json_encode($__mleIncomingSkaiR
                     <a
                       class="mle-advisory-btn mle-advisory-btn--primary mle-open-skai-precision-batch"
                       href="<?php echo htmlspecialchars($__qSkaiUrl, ENT_QUOTES, 'UTF-8'); ?>"
-                      target="_self"
-                      rel="noopener"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       data-mle-confirm="precision-open"
                       data-skai-url="<?php echo htmlspecialchars($__qSkaiUrl, ENT_QUOTES, 'UTF-8'); ?>"
                       data-batch-id="<?php echo (int)$__qBatchId; ?>"
@@ -39365,9 +39365,6 @@ function mleAdvisoryCardPrint(btn) {
     if(kind === 'precision-open'){
       return 'Open Precision Focus Batch in SKAI?\n\nSKAI will load the 9 MyLottoExpert-selected runs for this lottery so you can run and save them. Do not create another batch for this lottery until these runs are generated and later scored.';
     }
-    if(kind === 'regular-skai'){
-      return 'Open SKAI for regular runs?\n\nThis lottery needs more regular scored evidence before stronger Precision Focus narrowing. Run a normal SKAI prediction or normal 9-combo batch, save the runs, then score them after the draw.';
-    }
     return '';
   }
   document.addEventListener('mouseover', function(e){var h=closest(e.target,'.mle-help-tip'); if(h){showPop(h);}});
@@ -40694,7 +40691,7 @@ html.mle-v34-mode-full details.mle-compact-group .mle-compact-group__body{displa
     a.textContent = label;
     a.href = url || '#';
     a.setAttribute('data-mle-v63-skai-link', '1');
-    if (url) { a.target = '_self'; }
+    if (url) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
     return a;
   }
 
@@ -40783,10 +40780,11 @@ html.mle-v34-mode-full details.mle-compact-group .mle-compact-group__body{displa
       buildRunPanel(card);
       var url = cardSkaiUrl(card);
       if (url) {
-        qsa('a[data-mle-confirm="regular-skai"], a[data-mle-v37-single], a[data-mle-v63-skai-link], a[href="#"]', card).forEach(function(a){
+        qsa('a[data-mle-v37-single], a[data-mle-v63-skai-link], a[href="#"]', card).forEach(function(a){
           if (/Open SKAI|Regular 9-Batch|Single SKAI|Run new predictions|Run new runs/i.test(text(a))) {
             a.href = url;
-            a.target = '_self';
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
             a.setAttribute('data-skai-regular-url', url);
             applySkaiMeta(a, card);
           }
@@ -40795,16 +40793,8 @@ html.mle-v34-mode-full details.mle-compact-group .mle-compact-group__body{displa
     });
   }
 
-  document.addEventListener('click', function(e){
-    var single = closest(e.target, '.mle-v63-single-link');
-    if (single) {
-      var card = closest(single, '.mle-advisory-card');
-      if (card && pendingCount(card) <= 0 && hasFocusBatch(card)) {
-        var ok = window.confirm('Run Single Prediction Instead?\n\nLottoExpert recommends a 9-run batch because it gives better comparison data for future narrowing. A single run is faster, but it gives less evidence.\n\nContinue with single run?');
-        if (!ok) { e.preventDefault(); }
-      }
-    }
-  }, true);
+  // Single-run links navigate directly — no blocking confirm.
+  // Users are free to run single predictions at any time.
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function(){ setTimeout(apply, 120); setTimeout(apply, 800); });
